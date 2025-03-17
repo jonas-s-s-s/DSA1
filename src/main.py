@@ -43,14 +43,13 @@ def process_msg(sender_addr, msg: str):
     global my_ip
     if my_ip is None:
         my_ip = ip_tools.get_ip(config.IP_PREFIX)
-    print(my_ip)
     if sender_addr[0] == my_ip:
         return
 
     ### Process each message depending on the type
     sender_ip = sender_addr[0]
     global leader, election_state, my_color
-    print("Received UDP message from {}:{}".format(sender_addr, msg))
+    print("Node {} received UDP message from {}:{}".format(my_ip,sender_addr, msg))
 
     if int(msg) == MessageType.ELECTION.value:
         if ip_tools.is_higher_ip(sender_ip, my_ip):
