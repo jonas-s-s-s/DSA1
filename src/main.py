@@ -1,11 +1,101 @@
-from msg_processor import MsgProcessor
 import asyncio
-import config as config
+from enum import Enum
+import config
+import ip_tools
+from sorted_structs import SortedDict
+from messages import *
 
+
+#################################################################################
+# TYPES
+#################################################################################
+class NodeColor(Enum):
+    INIT = 1
+    RED = 2
+    GREEN = 3
+
+
+class ElectionState(Enum):
+    SENT_LEADER_REQUEST = 1  # This node has sent a LEADER REQUEST message
+    SENT_ELECTION_BROADCAST = 2
+    ELECTION_MSG_RECEIVED = 3  # This node has received an ELECTION message
+    ELECTION_MSG_LONG_DELAY = 4  # This node has already been in state ELECTION_MSG_RECEIVED for one timeout period
+
+
+#################################################################################
+# GLOBAL STATE
+#################################################################################
+
+nodes_table = SortedDict()
+my_ip = None
+leader = None
+my_color = NodeColor.INIT
+election_state = None
+
+
+#################################################################################
+# MESSAGE PROCESSING
+#################################################################################
+
+
+def process_msg(sender_addr, msg: str):
+    ### Get our IP
+    global my_ip
+    if my_ip is None:
+        my_ip = ip_tools.get_ip(config.IP_PREFIX)
+    print(my_ip)
+    if sender_addr[0] == my_ip:
+        return
+
+    ### Process each message depending on the type
+    sender_ip = sender_addr[0]
+    global leader, election_state, my_color
+    print("Received UDP message from {}:{}".format(sender_addr, msg))
+
+    if int(msg) == MessageType.ELECTION.value:
+        if ip_tools.is_higher_ip(sender_ip, my_ip):
+            # There is a node with higher IP in the election
+            election_state = ElectionState.ELECTION_MSG_RECEIVED
+        else:
+            # This node has lower IP than us, inform it
+            send_election_unicast(sender_ip)
+            election_state = None  # TODO: Maybe SENT_LEADER_REQUEST?
+            leader = None
+
+    elif int(msg) == MessageType.VICTORY.value:
+        # Another node has won the election
+        leader = sender_ip
+        election_state = None
+
+    elif int(msg) == MessageType.LEADER_REQUEST.value:
+        if leader == "THIS":
+            # We are the leader, inform sender of this fact
+            send_leader_response_unicast(sender_ip)
+
+    elif int(msg) == MessageType.LEADER_RESPONSE.value:
+        leader = sender_ip
+        election_state = None
+
+    elif int(msg) == MessageType.SET_TO_RED.value:
+        my_color = NodeColor.RED
+
+    elif int(msg) == MessageType.SET_TO_GREEN.value:
+        my_color = NodeColor.GREEN
+
+    elif int(msg) == MessageType.KEEPALIVE.value:
+        pass
+
+    else:
+        print(f"Ignoring this message due to unknown message type: {msg}")
+
+
+#################################################################################
+# UDP SERVER
+#################################################################################
 
 class UDPListener:
     def __init__(self):
-        self.msg_processor: MsgProcessor = MsgProcessor()
+        pass
 
     def connection_made(self, transport):
         self.transport = transport
@@ -13,8 +103,8 @@ class UDPListener:
 
     def datagram_received(self, data, addr):
         message = data.decode()
-        self.msg_processor.process_udp_message(self, addr, message)
-        # self.transport.sendto(data, addr)
+        print("Received:", addr, data)
+        process_msg(addr, message)
 
     def error_received(self, exc):
         print(f"Error received: {exc}")
@@ -23,11 +113,46 @@ class UDPListener:
         print("Closing UDP server")
 
 
-async def keepalive_task():
+#################################################################################
+# KEEPALIVE
+#################################################################################
+
+async def timer_task():
     while True:
-        print("Executing keepalive task...")
+        print("Executing timer task...")
+        global election_state, leader
+
+        if leader is None:
+            # We don't have a leader - request a leader
+            if election_state is None:
+                send_leader_request_broadcast()
+                election_state = ElectionState.SENT_LEADER_REQUEST
+            # No response to LEADER REQUEST, start election
+            elif election_state == ElectionState.SENT_LEADER_REQUEST:
+                send_election_broadcast()
+                election_state = ElectionState.SENT_ELECTION_BROADCAST
+            # No other node has sent us ELECTION or VICTORY message before timeout, this node won the election
+            elif election_state == ElectionState.SENT_ELECTION_BROADCAST:
+                send_victory_broadcast()
+                leader = "THIS"
+                election_state = None
+            # Node has been in the ELECTION_MSG_RECEIVED state for one timeout period
+            elif election_state == ElectionState.ELECTION_MSG_RECEIVED:
+                election_state = ElectionState.ELECTION_MSG_LONG_DELAY
+            # Node has not received any ELECTION messages for two timeout periods, the election process is restarted
+            elif election_state == ElectionState.ELECTION_MSG_LONG_DELAY:
+                election_state = None
+        else:
+            # TODO: Send keepalive to leader
+            # TODO: Validate keepalive from leader
+            pass
+
         await asyncio.sleep(config.KEEPALIVE_INTERVAL)
 
+
+#################################################################################
+# MAIN
+#################################################################################
 
 async def main():
     loop = asyncio.get_running_loop()
@@ -36,7 +161,10 @@ async def main():
         UDPListener,
         local_addr=(config.DEFAULT_LISTENING_IP, config.DEFAULT_LISTENING_PORT))
 
-    asyncio.create_task(keepalive_task())
+    # This sleep is needed or the first send_leader_request_broadcast() won't work (???)
+    await asyncio.sleep(config.KEEPALIVE_INTERVAL)
+
+    asyncio.create_task(timer_task())
 
     try:
         await asyncio.Future()
