@@ -122,31 +122,32 @@ async def timer_task():
         global election_state, leader
 
         if leader is None:
-            # We don't have a leader - request a leader
             if election_state is None:
+                # We don't have a leader - request a leader
                 send_leader_request_broadcast()
                 election_state = ElectionState.SENT_LEADER_REQUEST
-            # No response to LEADER REQUEST, start election
             elif election_state == ElectionState.SENT_LEADER_REQUEST:
+                # No response to LEADER REQUEST, start election
                 send_election_broadcast()
                 election_state = ElectionState.SENT_ELECTION_BROADCAST
-            # No other node has sent us ELECTION or VICTORY message before timeout, this node won the election
             elif election_state == ElectionState.SENT_ELECTION_BROADCAST:
+                # No other node has sent us ELECTION or VICTORY message before timeout, this node won the election
                 send_victory_broadcast()
                 leader = "THIS"
                 election_state = None
-            # Node has been in the ELECTION_MSG_RECEIVED state for one timeout period
             elif election_state == ElectionState.ELECTION_MSG_RECEIVED:
+                # Node has been in the ELECTION_MSG_RECEIVED state for one timeout period
+                # (This means node with higher IP has previously sent us ELECTION message - our node has lower priority)
                 election_state = ElectionState.ELECTION_MSG_LONG_DELAY
-            # Node has not received any ELECTION messages for two timeout periods, the election process is restarted
             elif election_state == ElectionState.ELECTION_MSG_LONG_DELAY:
+                # Node has not received any ELECTION messages for two timeout periods, the election process is restarted
                 election_state = None
         else:
             # TODO: Send keepalive to leader
             # TODO: Validate keepalive from leader
             pass
 
-        await asyncio.sleep(config.KEEPALIVE_INTERVAL)
+        await asyncio.sleep(config.KEEPALIVE_INTERVAL) # TODO: Election interval? / Maybe split all election logic into separate file / section?
 
 
 #################################################################################
@@ -160,7 +161,7 @@ async def main():
         UDPListener,
         local_addr=(config.DEFAULT_LISTENING_IP, config.DEFAULT_LISTENING_PORT))
 
-    # This sleep is needed or the first send_leader_request_broadcast() won't work (???)
+    # This sleep is needed or the first send_leader_request_broadcast() won't work (???) TODO: Move into UDP server init 
     await asyncio.sleep(config.KEEPALIVE_INTERVAL)
 
     asyncio.create_task(timer_task())
