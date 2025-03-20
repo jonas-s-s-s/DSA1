@@ -3,7 +3,7 @@ from enum import Enum
 import config
 import ip_tools
 from sorted_structs import SortedDict
-from messages import *
+from protocol_msgs import *
 
 
 #################################################################################
@@ -51,7 +51,7 @@ def process_msg(sender_addr, msg: str):
     global leader, election_state, my_color
     print("Node {} received UDP message from {}:{}".format(my_ip,sender_addr, msg))
 
-    if int(msg) == MessageType.ELECTION.value:
+    if int(msg) == MsgType.ELECTION.value:
         if ip_tools.is_higher_ip(sender_ip, my_ip):
             # There is a node with higher IP in the election
             election_state = ElectionState.ELECTION_MSG_RECEIVED
@@ -61,27 +61,27 @@ def process_msg(sender_addr, msg: str):
             election_state = None  # TODO: Maybe SENT_LEADER_REQUEST?
             leader = None
 
-    elif int(msg) == MessageType.VICTORY.value:
+    elif int(msg) == MsgType.VICTORY.value:
         # Another node has won the election
         leader = sender_ip
         election_state = None
 
-    elif int(msg) == MessageType.LEADER_REQUEST.value:
+    elif int(msg) == MsgType.LEADER_REQUEST.value:
         if leader == "THIS":
             # We are the leader, inform sender of this fact
             send_leader_response_unicast(sender_ip)
 
-    elif int(msg) == MessageType.LEADER_RESPONSE.value:
+    elif int(msg) == MsgType.LEADER_RESPONSE.value:
         leader = sender_ip
         election_state = None
 
-    elif int(msg) == MessageType.SET_TO_RED.value:
+    elif int(msg) == MsgType.SET_TO_RED.value:
         my_color = NodeColor.RED
 
-    elif int(msg) == MessageType.SET_TO_GREEN.value:
+    elif int(msg) == MsgType.SET_TO_GREEN.value:
         my_color = NodeColor.GREEN
 
-    elif int(msg) == MessageType.KEEPALIVE.value:
+    elif int(msg) == MsgType.KEEPALIVE.value:
         pass
 
     else:
@@ -113,7 +113,7 @@ class UDPListener:
 
 
 #################################################################################
-# KEEPALIVE
+# TIMER TASK
 #################################################################################
 
 async def timer_task():
