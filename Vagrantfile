@@ -48,7 +48,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   end
 
   # Define base nodes
-  (0..NODE_COUNT + 1).each do |i|
+  (1..NODE_COUNT).each do |i|
     node_name = "#{NODE_PREFIX}#{i}"
     node_ip_addr = "#{NODE_SUBNET}#{NODE_IP_OFFSET + i}"
 
