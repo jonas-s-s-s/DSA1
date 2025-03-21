@@ -11,11 +11,12 @@ unless Vagrant.has_plugin?("vagrant-docker-compose")
 end
 
 # Define the number of nodes
-NODE_COUNT = 3
+NODE_COUNT = 10
 NODE_IMAGE = "j_dist_node"
 NODE_PREFIX = "node-"
 NODE_SUBNET = "10.0.1."
-NODE_IP_OFFSET = 0
+NODE_IP_OFFSET = 10
+MONITOR_NODE_IP = "10.0.1.2"
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.synced_folder ".", "/vagrant", type: "rsync", rsync__exclude: ".*/"
@@ -30,8 +31,24 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     end
   end
 
-  # Define nodes
-  (2..NODE_COUNT + 1).each do |i|
+  # Define monitor node
+  config.vm.define "monitor" do |m|
+    m.vm.network "private_network", ip: MONITOR_NODE_IP
+    m.vm.hostname = "monitor"
+
+    m.vm.provider "docker" do |d|
+      d.build_dir = "."
+      d.build_args = ["-t", NODE_IMAGE]
+      d.name = "monitor"
+      d.create_args = ["--env", "MONITOR_MODE=active"]  # Example argument
+      d.has_ssh = true
+    end
+
+    m.vm.post_up_message = "Monitor Node up and running."
+  end
+
+  # Define base nodes
+  (0..NODE_COUNT + 1).each do |i|
     node_name = "#{NODE_PREFIX}#{i - 1}"
     node_ip_addr = "#{NODE_SUBNET}#{NODE_IP_OFFSET + i}"
 

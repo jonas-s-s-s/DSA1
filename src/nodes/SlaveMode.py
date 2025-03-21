@@ -14,7 +14,7 @@ class SlaveMode:
     def got_keepalive_from_leader(self):
         self.last_keepalive_from_leader = time.time_ns()
 
-    def keepalive_to_leader(self):
+    def keepalive_to_leader(self, my_color):
         current_timestamp = time.time_ns()
         if self.last_keepalive_from_leader is not None:
             if current_timestamp - self.last_keepalive_from_leader > config.LEADER_DEAD_AFTER:
@@ -24,7 +24,7 @@ class SlaveMode:
                 self.clear_leader()
                 return
 
-        send_keepalive_unicast(self.leader)
+        send_keepalive_unicast(self.leader, my_color)
 
     def clear_leader(self):
         self.leader = None

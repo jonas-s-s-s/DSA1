@@ -38,7 +38,7 @@ class BaseNode:
         self.my_color: NodeColor = NodeColor.INIT
         self.election_state: ElectionState = ElectionState.INIT
         # BaseNode calls member functions of those two classes (depending on which mode it operates in)
-        self.leader_mode: src.nodes.LeaderMode = src.nodes.LeaderMode.LeaderMode(self) # TODO: Import issue
+        self.leader_mode: src.nodes.LeaderMode = src.nodes.LeaderMode.LeaderMode()  # TODO: Import issue
         self.slave_mode: SlaveMode = SlaveMode()
         # Starts as slave by default
         self.operation_mode: OperationMode = OperationMode.SLAVE
@@ -51,8 +51,10 @@ class BaseNode:
         if sender_ip == self.my_ip:
             return
         #################################################
-        msg_code = int(msg)
-        print(f"Node {self.my_ip} received UDP message from {sender_addr}: {MsgType(msg_code).value}")
+        msg_code, data = decode_msg(msg)
+        msg_code = int(msg_code)
+        if msg_code != 8: # Suppress monitor request prints
+            print(f"Node {self.my_ip} received UDP message from {sender_addr}: {MsgType(msg_code).name}")
         ##############################################
         ### Process each message depending on the type
 
@@ -83,16 +85,20 @@ class BaseNode:
                 send_leader_response_unicast(sender_ip)
 
         elif msg_code == MsgType.SET_TO_RED.value:
-            self.my_color = NodeColor.RED
+            self.set_my_color(NodeColor.RED)
 
         elif msg_code == MsgType.SET_TO_GREEN.value:
-            self.my_color = NodeColor.GREEN
+            self.set_my_color(NodeColor.GREEN)
 
         elif msg_code == MsgType.KEEPALIVE.value:
             if self.operation_mode == OperationMode.LEADER:
-                self.leader_mode.got_keepalive_from_node(sender_ip)
+                self.leader_mode.got_keepalive_from_node(sender_ip, data)
             else:
                 self.slave_mode.got_keepalive_from_leader()
+
+        elif msg_code == MsgType.MONITOR_COLOR_REQUEST.value:
+            # This exists only for monitoring purposes - isn't used for the algorithm
+            send_monitor_color_response_unicast(sender_ip, self.my_color.value)
 
         else:
             print(f"Ignoring this message due to unknown message type: {msg_code}")
@@ -110,7 +116,7 @@ class BaseNode:
                 if self.slave_mode.leader is None:
                     self.evaluate_election_state()
                 else:
-                    self.slave_mode.keepalive_to_leader()
+                    self.slave_mode.keepalive_to_leader(self.my_color.value)
 
             ### TODO: Add separate interval for election?
             await asyncio.sleep(config.KEEPALIVE_INTERVAL)
@@ -128,6 +134,7 @@ class BaseNode:
             # No other node has sent us ELECTION or VICTORY message before timeout, this node won the election
             send_victory_broadcast()
             self.operation_mode = OperationMode.LEADER
+            self.set_my_color(NodeColor.RED)
         ############################################################################################################
         elif self.election_state == ElectionState.ELECTION_MSG_RECEIVED:
             # Node has been in the ELECTION_MSG_RECEIVED state for one timeout period
@@ -136,3 +143,6 @@ class BaseNode:
         elif self.election_state == ElectionState.ELECTION_MSG_LONG_DELAY:
             # Node has not received any ELECTION messages for two timeout periods, the election process is restarted
             self.election_state = ElectionState.INIT
+
+    def set_my_color(self, color: NodeColor):
+        self.my_color = color
