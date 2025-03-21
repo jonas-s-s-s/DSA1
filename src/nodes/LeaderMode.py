@@ -60,19 +60,15 @@ class LeaderMode:
         to_color_red -= 1
 
         for node_id in self.nodes_table:
-            print(node_id)
+            #print(node_id)
             node_color = self.nodes_table[node_id].color
             if to_color_red > 0:
                 if node_color != Base.NodeColor.RED:
-                    print("coloring red", node_color)
+                    #print("coloring red", node_color)
                     send_set_to_red_unicast(node_id)
                     self.nodes_table[node_id].color = Base.NodeColor.RED
                 to_color_red -= 1
             elif (to_color_red <= 0) and (node_color != Base.NodeColor.GREEN):
-                print("coloring green", node_color)
+                #print("coloring green", node_color)
                 send_set_to_green_unicast(node_id)
                 self.nodes_table[node_id].color = Base.NodeColor.GREEN
-            else:
-                print("NOTHING", node_color, to_color_red)
-
-            print()

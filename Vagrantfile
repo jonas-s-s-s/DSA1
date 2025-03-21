@@ -40,7 +40,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       d.build_dir = "."
       d.build_args = ["-t", NODE_IMAGE]
       d.name = "monitor"
-      d.create_args = ["--env", "MONITOR_MODE=active"]  # Example argument
+      d.create_args = ["--env", "MONITOR_MODE=active"]
       d.has_ssh = true
     end
 
@@ -49,7 +49,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
   # Define base nodes
   (0..NODE_COUNT + 1).each do |i|
-    node_name = "#{NODE_PREFIX}#{i - 1}"
+    node_name = "#{NODE_PREFIX}#{i}"
     node_ip_addr = "#{NODE_SUBNET}#{NODE_IP_OFFSET + i}"
 
     config.vm.define node_name do |s|
