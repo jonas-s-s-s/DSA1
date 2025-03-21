@@ -1,5 +1,7 @@
 import heapq
 
+import heapq
+
 class SortedDict:
     def __init__(self, mapping=None):
         """
@@ -82,6 +84,13 @@ class SortedDict:
         Returns a string representation of the sorted dictionary.
         """
         return f"SortedDict({self.items()})"
+
+    def contains_key(self, key):
+        """
+        Checks if the key exists in the dictionary.
+        """
+        return key in self._dict
+
 
 class SortedList:
     def __init__(self, iterable=None):
