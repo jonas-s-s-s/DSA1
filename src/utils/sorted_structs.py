@@ -1,7 +1,5 @@
 import heapq
 
-import heapq
-
 class SortedDict:
     def __init__(self, mapping=None):
         """

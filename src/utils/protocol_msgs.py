@@ -1,6 +1,7 @@
 from enum import Enum
 import socket
-import config
+
+from src import config
 
 
 class MsgType(Enum):

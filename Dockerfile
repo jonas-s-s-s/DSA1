@@ -5,4 +5,5 @@ RUN yum -q -y install epel-release && \
 
 COPY src /app/src
 
-CMD ["python3", "-u", "/app/src/main.py"]
+WORKDIR /app/
+CMD ["python3", "-u", "-m", "src.main"]
